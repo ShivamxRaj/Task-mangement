@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  updateUserMetadata: (metadata: { full_name?: string; avatar_url?: string }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -131,8 +132,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateUserMetadata = async (metadata: { full_name?: string; avatar_url?: string }) => {
+    const isMockBypassActive = !process.env.NEXT_PUBLIC_SUPABASE_URL || 
+                               process.env.NEXT_PUBLIC_SUPABASE_URL.includes("your-supabase-project-id");
+
+    if (isMockBypassActive) {
+      if (!user) return;
+      const updatedUser = {
+        ...user,
+        user_metadata: {
+          ...user.user_metadata,
+          ...metadata,
+        }
+      };
+      localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+      setUser(updatedUser as any);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.updateUser({
+        data: metadata
+      });
+      if (error) throw error;
+      setUser(data.user);
+    } catch (err) {
+      console.error("Update profile metadata error:", err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signInWithGoogle, signOut, updateUserMetadata }}>
       {children}
     </AuthContext.Provider>
   );

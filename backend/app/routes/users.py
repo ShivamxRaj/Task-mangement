@@ -23,3 +23,15 @@ def get_user_by_id(user_id):
     """
     result, status_code = user_controller.get_user(user_id)
     return jsonify(result), status_code
+
+@users_bp.route('/profile', methods=['PUT'])
+@token_required
+def update_profile():
+    """
+    Update profile of the logged-in user
+    """
+    from flask import request
+    current_user_id = g.current_user.get('id')
+    data = request.json or {}
+    result, status_code = user_controller.update_profile(current_user_id, data)
+    return jsonify(result), status_code

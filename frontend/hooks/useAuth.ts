@@ -1,7 +1,7 @@
 import { useAuthContext } from '../context/AuthContext';
 
 export const useAuth = () => {
-  const { user, session, loading, signInWithGoogle, signOut } = useAuthContext();
+  const { user, session, loading, signInWithGoogle, signOut, updateUserMetadata } = useAuthContext();
 
   return {
     user,
@@ -10,6 +10,7 @@ export const useAuth = () => {
     isAuthenticated: !!user,
     signInWithGoogle,
     signOut,
+    updateUserMetadata,
   };
 };
 export default useAuth;

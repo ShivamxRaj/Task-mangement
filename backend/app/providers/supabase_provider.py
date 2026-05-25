@@ -169,3 +169,17 @@ class SupabaseProvider:
         if len(response.data) > 0:
             return response.data[0]
         return None
+
+    def update_profile(self, user_id, update_data):
+        if not self.client:
+            p = next((profile for profile in self._mock_profiles if profile["id"] == user_id), None)
+            if p:
+                for k, v in update_data.items():
+                    p[k] = v
+                return p
+            return None
+
+        response = self.client.table('profiles').update(update_data).eq('id', user_id).execute()
+        if len(response.data) > 0:
+            return response.data[0]
+        return None

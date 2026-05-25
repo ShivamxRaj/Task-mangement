@@ -1,15 +1,71 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useTasks } from '@/hooks/useTasks';
-import { Mail, Shield, Calendar, Award, CheckSquare, ListTodo, ThumbsUp } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Mail, Shield, Calendar, Award, CheckSquare, ListTodo, ThumbsUp, Camera, Loader2 } from 'lucide-react';
 
 export default function ProfilePage() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, updateUserMetadata } = useAuth();
   const router = useRouter();
   const { tasks } = useTasks();
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const triggerFileInput = () => {
+    if (!isUploading) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Image size should be less than 5MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+    setUploadSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64String = reader.result as string;
+        
+        const response = await api.put('/api/users/profile', { avatar_url: base64String });
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to update backend profile.');
+        }
+
+        await updateUserMetadata({ avatar_url: base64String });
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      } catch (err: any) {
+        console.error('Error uploading photo:', err);
+        setUploadError(err.message || 'An error occurred during photo upload.');
+      } finally {
+        setIsUploading(false);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError('Failed to read file.');
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -49,17 +105,44 @@ export default function ProfilePage() {
 
       <div className="border border-slate-200/80 dark:border-slate-800/80 rounded-2xl bg-white dark:bg-slate-900 p-6 md:p-8 shadow-sm transition-colors space-y-6">
         <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-slate-100 dark:border-slate-850">
-          {user?.user_metadata?.avatar_url ? (
-            <img
-              src={user.user_metadata.avatar_url}
-              alt={user.user_metadata.full_name || 'Profile Picture'}
-              className="h-20 w-20 rounded-full border-2 border-blue-500 shadow-md object-cover"
+          <div className="relative group cursor-pointer">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*"
+              className="hidden"
             />
-          ) : (
-            <div className="h-20 w-20 rounded-full bg-blue-600 text-white font-extrabold text-3xl flex items-center justify-center shadow-md">
-              {user?.email?.charAt(0).toUpperCase()}
+            <div 
+              onClick={triggerFileInput}
+              className="relative h-20 w-20 rounded-full overflow-hidden border-2 border-blue-500 shadow-md group-hover:border-blue-400 transition-all duration-200"
+              title="Click to upload profile photo"
+            >
+              {isUploading ? (
+                <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center text-white">
+                  <Loader2 size={24} className="animate-spin text-blue-400" />
+                </div>
+              ) : (
+                <>
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt={user.user_metadata.full_name || 'Profile Picture'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-blue-600 text-white font-extrabold text-3xl flex items-center justify-center">
+                      {user?.email?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white transition-opacity duration-200">
+                    <Camera size={18} className="mb-0.5" />
+                    <span className="text-[9px] font-bold uppercase tracking-wider">Change</span>
+                  </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="text-center sm:text-left space-y-2">
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -80,6 +163,17 @@ export default function ProfilePage() {
                 <span>Joined: {creationDate}</span>
               </div>
             </div>
+
+            {uploadError && (
+              <p className="text-xs font-semibold text-red-500 animate-fadeIn pt-1">
+                {uploadError}
+              </p>
+            )}
+            {uploadSuccess && (
+              <p className="text-xs font-semibold text-emerald-500 animate-fadeIn pt-1">
+                Profile photo updated successfully!
+              </p>
+            )}
           </div>
         </div>
 

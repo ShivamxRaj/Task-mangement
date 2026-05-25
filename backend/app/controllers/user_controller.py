@@ -26,3 +26,18 @@ class UserController:
             return {"success": True, "data": user}, 200
         except Exception as e:
             return {"success": False, "error": str(e)}, 500
+
+    def update_profile(self, user_id, data):
+        try:
+            update_payload = {}
+            if "full_name" in data:
+                update_payload["full_name"] = data["full_name"]
+            if "avatar_url" in data:
+                update_payload["avatar_url"] = data["avatar_url"]
+
+            updated_profile = self.supabase_provider.update_profile(user_id, update_payload)
+            if not updated_profile:
+                return {"success": False, "error": "Failed to update profile"}, 500
+            return {"success": True, "data": updated_profile}, 200
+        except Exception as e:
+            return {"success": False, "error": str(e)}, 500
